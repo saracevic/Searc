@@ -97,51 +97,92 @@ const SITES = [
     { name: "SSRMovies", url: "https://ssrmovies.archi" }
 ];
 
-// CORS Proxy (ücretsiz)
-const PROXY = "https://api.allorigins.win/raw?url=";
+// CORS proxy list (ücretsiz)
+const PROXIES = [
+    "https://api.allorigins.win/raw?url=",
+    "https://api.allorigins.cf/raw?url="
+];
+const MAX_CONCURRENT_FETCHES = 8;
+
+function normalizeUrl(url) {
+    return url.replace(/\/+$/g, "");
+}
+
+async function fetchWithProxy(url) {
+    for (const proxy of PROXIES) {
+        try {
+            const response = await fetch(proxy + encodeURIComponent(url));
+            if (response.ok) {
+                return await response.text();
+            }
+        } catch (error) {
+            console.warn('Proxy başarısız:', proxy, error);
+        }
+    }
+    throw new Error('Tüm proxy istekleri başarısız oldu');
+}
 
 async function searchAll() {
-    const query = document.getElementById('searchInput').value.trim();
+    const searchInput = document.getElementById('searchInput');
+    const query = searchInput.value.trim();
+
     if (!query) {
         alert('Lütfen bir film/dizi adı girin!');
+        searchInput.focus();
         return;
     }
 
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('results').innerHTML = '';
-    
-    let found = [];
+    const normalizedQuery = query.toLowerCase();
+    const loading = document.getElementById('loading');
+    const resultsDiv = document.getElementById('results');
+    const searchButton = document.getElementById('searchButton');
 
-    for (const site of SITES) {
+    loading.style.display = 'block';
+    resultsDiv.innerHTML = '';
+    searchButton.disabled = true;
+
+    const found = [];
+    const errors = [];
+
+    const jobs = SITES.map(site => async () => {
+        const url = `${normalizeUrl(site.url)}/?s=${encodeURIComponent(query)}`;
         try {
-            const url = `${site}/?s=${encodeURIComponent(query)}`;
-            const response = await fetch(`${PROXY}${encodeURIComponent(url)}`);
-            
-            if (response.ok) {
-                const html = await response.text();
-                if (html.toLowerCase().includes(query.toLowerCase())) {
-                    found.push({
-                        site: site.replace('https://', '').replace('www.', ''),
-                        url: url
-                    });
-                }
+            const html = await fetchWithProxy(url);
+            if (html.toLowerCase().includes(normalizedQuery)) {
+                found.push({ site: site.name, url });
             }
         } catch (error) {
-            console.log('Hata:', site);
+            errors.push(site.name);
         }
+    });
+
+    for (let i = 0; i < jobs.length; i += MAX_CONCURRENT_FETCHES) {
+        const batch = jobs.slice(i, i + MAX_CONCURRENT_FETCHES).map(job => job());
+        await Promise.all(batch);
     }
 
-    document.getElementById('loading').style.display = 'none';
-    
-    const resultsDiv = document.getElementById('results');
-    
+    loading.style.display = 'none';
+    searchButton.disabled = false;
+
     if (found.length > 0) {
         resultsDiv.innerHTML = found.map(item => `
             <div class="result-item">
-                <a href="${item.url}" target="_blank">🔗 ${item.site}</a>
+                <a href="${item.url}" target="_blank" rel="noopener noreferrer">🔗 ${item.site}</a>
             </div>
         `).join('');
     } else {
         resultsDiv.innerHTML = `<div class="no-result">😕 "${query}" için sonuç bulunamadı</div>`;
     }
+
+    if (errors.length > 0 && found.length === 0) {
+        resultsDiv.innerHTML += `<div class="no-result">Bazı sitelere erişilemedi veya proxy isteği başarısız oldu.</div>`;
+    }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('searchForm');
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        searchAll();
+    });
+});

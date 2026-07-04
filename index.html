@@ -9,10 +9,10 @@
 <body>
     <div class="container">
         <h1>🎬 Film/Dizi Arama</h1>
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Film veya dizi adı yazın..." onkeypress="if(event.key==='Enter') searchAll()">
-            <button onclick="searchAll()">Ara</button>
-        </div>
+        <form id="searchForm" class="search-box">
+            <input type="text" id="searchInput" placeholder="Film veya dizi adı yazın..." autocomplete="off" aria-label="Arama">
+            <button type="submit" id="searchButton">Ara</button>
+        </form>
         <div id="loading" style="display:none;">Aranıyor...</div>
         <div id="results"></div>
     </div>
