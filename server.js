@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
+const { shouldTreatAsMatch } = require('./lib/searchMatcher');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -118,30 +119,10 @@ app.post('/api/search', async (req, res) => {
 
     console.log(`🔍 Aranıyor: "${query}" - ${SITES.length} site`);
 
-    const normalizedQuery = query.toLowerCase();
+    const normalizedQuery = query.toLowerCase().trim();
     const results = [];
+    const weakMatches = [];
 
-    const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const countOccurrences = (text, substring) => {
-        let count = 0;
-        let pos = 0;
-        while ((pos = text.indexOf(substring, pos)) !== -1) {
-            count++;
-            pos += substring.length;
-        }
-        return count;
-    };
-
-    const isStrongMatch = (html, queryText) => {
-        const escapedQuery = escapeRegExp(queryText);
-        const titleMatch = new RegExp(`<title[^>]*>[^<]*${escapedQuery}[^<]*<\\/title>`).test(html);
-        const headingMatch = new RegExp(`<h[1-6][^>]*>[^<]*${escapedQuery}[^<]*<\\/h[1-6]>`).test(html);
-        const linkMatch = new RegExp(`<a[^>]*>[^<]*${escapedQuery}[^<]*<\\/a>`).test(html);
-        const exactWordMatch = new RegExp(`\\b${escapedQuery}\\b`).test(html);
-        const matchCount = countOccurrences(html, queryText);
-
-        return titleMatch || headingMatch || linkMatch || matchCount >= 2 || exactWordMatch;
-    };
 
     for (const site of SITES) {
         try {
@@ -164,14 +145,19 @@ app.post('/api/search', async (req, res) => {
 
                     if (response.data) {
                         const html = response.data.toLowerCase();
-                        if (html.includes(normalizedQuery) && isStrongMatch(html, normalizedQuery)) {
+                        const hasQuery = html.includes(normalizedQuery);
+                        if (hasQuery && shouldTreatAsMatch(response.data, query)) {
                             results.push({
                                 site: site.name,
                                 url: url
                             });
                             found = true;
-                            console.log(`✅ ${site.name}: Bulundu!`);
+                            console.log(`✅ ${site.name}: Güçlü eşleşme bulundu`);
                             break;
+                        }
+
+                        if (hasQuery) {
+                            weakMatches.push({ site: site.name, url });
                         }
                     }
                 } catch (e) {}
@@ -189,6 +175,7 @@ app.post('/api/search', async (req, res) => {
         query: query,
         totalSites: SITES.length,
         found: results.length,
+        weakMatches: weakMatches.length,
         results: results
     });
 });

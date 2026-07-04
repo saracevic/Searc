@@ -32,12 +32,12 @@ async function searchAll() {
         document.getElementById('loading').style.display = 'none';
 
         if (data.found > 0) {
-            showStatus(`✅ ${data.found} sonuç bulundu!`, 'success');
+            showStatus(`✅ ${data.found} güvenli sonuç bulundu.`, 'success');
             displayResults(data.results, query);
         } else {
-            showStatus(`❌ "${query}" için sonuç bulunamadı`, 'error');
+            showStatus(`❌ "${query}" için güvenilir sonuç bulunamadı.`, 'error');
             document.getElementById('results').innerHTML = `
-                <div class="no-result">😕 Hiçbir sonuç bulunamadı</div>
+                <div class="no-result">😕 Hiçbir güvenli sonuç bulunamadı. Lütfen farklı bir kelime deneyin.</div>
             `;
         }
     } catch (error) {
