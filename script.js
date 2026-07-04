@@ -97,110 +97,51 @@ const SITES = [
     { name: "SSRMovies", url: "https://ssrmovies.archi" }
 ];
 
-// CORS proxy - Ücretsiz proxy servisi
-// NOT: Bu proxy'ler bazen yavaş olabilir veya çalışmayabilir
-const PROXY_URL = "https://api.allorigins.win/raw?url=";
-// Alternatif proxy: https://corsproxy.io/?
-
-let searchTimeout;
+// CORS Proxy (ücretsiz)
+const PROXY = "https://api.allorigins.win/raw?url=";
 
 async function searchAll() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) {
-        showStatus('Lütfen bir film/dizi adı girin!', 'loading');
-        setTimeout(() => hideStatus(), 2000);
+        alert('Lütfen bir film/dizi adı girin!');
         return;
     }
 
-    const resultsDiv = document.getElementById('results');
-    const statusDiv = document.getElementById('status');
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('results').innerHTML = '';
     
-    resultsDiv.innerHTML = '';
-    showStatus(`🔍 "${query}" aranıyor... (${SITES.length} site taranıyor)`, 'loading');
+    let found = [];
 
-    let foundResults = [];
-    let totalChecked = 0;
-
-    // Site başına arama yap
     for (const site of SITES) {
         try {
-            const searchUrl = `${site.url}`;
-            // Site içinde arama yapmak için siteye özel URL oluştur
-            // Çoğu sitede ?s= veya ?search= parametresiyle arama yapılır
-            const searchUrls = [
-                `${site.url}/?s=${encodeURIComponent(query)}`,
-                `${site.url}/search?q=${encodeURIComponent(query)}`,
-                `${site.url}/?search=${encodeURIComponent(query)}`,
-                `${site.url}/search/${encodeURIComponent(query)}`,
-                `${site.url}/?q=${encodeURIComponent(query)}`
-            ];
-
-            let found = false;
-            for (const url of searchUrls) {
-                try {
-                    const response = await fetch(`${PROXY_URL}${encodeURIComponent(url)}`);
-                    if (response.ok) {
-                        const html = await response.text();
-                        // Site içinde arama terimini ara (basitçe)
-                        if (html.toLowerCase().includes(query.toLowerCase())) {
-                            foundResults.push({
-                                site: site.name,
-                                url: url
-                            });
-                            found = true;
-                            break;
-                        }
-                    }
-                } catch (e) {
-                    // Bu URL denemesi başarısız, devam et
+            const url = `${site}/?s=${encodeURIComponent(query)}`;
+            const response = await fetch(`${PROXY}${encodeURIComponent(url)}`);
+            
+            if (response.ok) {
+                const html = await response.text();
+                if (html.toLowerCase().includes(query.toLowerCase())) {
+                    found.push({
+                        site: site.replace('https://', '').replace('www.', ''),
+                        url: url
+                    });
                 }
             }
-
-            totalChecked++;
-            // Durumu güncelle
-            if (totalChecked % 5 === 0 || totalChecked === SITES.length) {
-                showStatus(`🔍 "${query}" aranıyor... (${totalChecked}/${SITES.length} site tarandı, ${foundResults.length} sonuç bulundu)`, 'loading');
-            }
-
         } catch (error) {
-            // Bu site için hata, devam et
-            console.log(`${site.name} hatası:`, error);
+            console.log('Hata:', site);
         }
     }
 
-    // Sonuçları göster
-    if (foundResults.length > 0) {
-        showStatus(`✅ ${foundResults.length} sonuç bulundu!`, 'complete');
-        displayResults(foundResults, query);
+    document.getElementById('loading').style.display = 'none';
+    
+    const resultsDiv = document.getElementById('results');
+    
+    if (found.length > 0) {
+        resultsDiv.innerHTML = found.map(item => `
+            <div class="result-item">
+                <a href="${item.url}" target="_blank">🔗 ${item.site}</a>
+            </div>
+        `).join('');
     } else {
-        showStatus(`❌ "${query}" için hiçbir sonuç bulunamadı.`, 'complete');
-        resultsDiv.innerHTML = `<div class="no-result">😕 Hiçbir sitede "${query}" bulunamadı.</div>`;
+        resultsDiv.innerHTML = `<div class="no-result">😕 "${query}" için sonuç bulunamadı</div>`;
     }
 }
-
-function displayResults(results, query) {
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = results.map(result => `
-        <div class="result-item">
-            <a href="${result.url}" target="_blank">🔗 ${result.site} - ${query}</a>
-            <span class="site-name">${result.site}</span>
-        </div>
-    `).join('');
-}
-
-function showStatus(message, type) {
-    const status = document.getElementById('status');
-    status.textContent = message;
-    status.className = type;
-    status.style.display = 'block';
-}
-
-function hideStatus() {
-    const status = document.getElementById('status');
-    status.style.display = 'none';
-}
-
-// Sayfa yüklendiğinde inputa odaklan
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('searchInput').focus();
-});
