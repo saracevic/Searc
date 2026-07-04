@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Film/Dizi Arama Motoru</title>
+    <title>Film/Dizi Arama</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>🎬 Film/Dizi Arama Motoru</h1>
+        <h1>🎬 Film/Dizi Arama</h1>
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Film veya dizi adı yazın..." onkeypress="if(event.key==='Enter') searchAll()">
-            <button onclick="searchAll()">🔍 Ara</button>
+            <button onclick="searchAll()">Ara</button>
         </div>
-        <div id="status"></div>
+        <div id="loading" style="display:none;">Aranıyor...</div>
         <div id="results"></div>
     </div>
     <script src="script.js"></script>
